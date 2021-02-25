@@ -1,4 +1,4 @@
-package lsifstore
+package migration
 
 import (
 	"context"
@@ -6,13 +6,14 @@ import (
 
 	"github.com/keegancsmith/sqlf"
 
+	"github.com/sourcegraph/sourcegraph/enterprise/internal/codeintel/stores/lsifstore"
 	"github.com/sourcegraph/sourcegraph/internal/database/basestore"
 	"github.com/sourcegraph/sourcegraph/internal/oobmigration"
 )
 
 type diagnosticsCountMigrator struct {
-	store      *Store
-	serializer *Serializer
+	store      *lsifstore.Store
+	serializer *lsifstore.Serializer
 }
 
 // DiagnosticsCountMigrationID is the primary key of the migration record an instance of
@@ -24,10 +25,10 @@ const DiagnosticsCountMigrationID = 1
 // table and populates their num_diagnostics value based on their decoded payload. This
 // will update rows with a schema_version of 1, and will set the row's schema version
 // to 2 after processing.
-func NewDiagnosticsCountMigrator(store *Store) oobmigration.Migrator {
+func NewDiagnosticsCountMigrator(store *lsifstore.Store) oobmigration.Migrator {
 	return &diagnosticsCountMigrator{
 		store:      store,
-		serializer: NewSerializer(),
+		serializer: lsifstore.NewSerializer(),
 	}
 }
 
@@ -43,7 +44,7 @@ func (m *diagnosticsCountMigrator) Progress(ctx context.Context) (float64, error
 }
 
 const diagnosticsCountMigratorProgressQuery = `
--- source: enterprise/internal/codeintel/stores/lsifstore/migration_diagnostics_count.go:Progress
+-- source: enterprise/internal/codeintel/stores/lsifstore/migration/diagnostics_count.go:Progress
 SELECT CASE c2.count WHEN 0 THEN 1 ELSE cast(c1.count as float) / cast(c2.count as float) END FROM
 	(SELECT COUNT(*) as count FROM lsif_data_documents WHERE schema_version >= 2) c1,
 	(SELECT COUNT(*) as count FROM lsif_data_documents) c2
@@ -78,7 +79,7 @@ func (m *diagnosticsCountMigrator) Up(ctx context.Context) error {
 }
 
 const diagnosticsCountMigratorSelectQuery = `
--- source: enterprise/internal/codeintel/stores/lsifstore/migration_diagnostics_count.go:Up
+-- source: enterprise/internal/codeintel/stores/lsifstore/migration/diagnostics_count.go:Up
 SELECT dump_id, path, data
 FROM lsif_data_documents
 WHERE schema_version = 1
@@ -87,7 +88,7 @@ FOR UPDATE SKIP LOCKED
 `
 
 const diagnosticsCountMigratorUpdateQuery = `
--- source: enterprise/internal/codeintel/stores/lsifstore/migration_diagnostics_count.go:Up
+-- source: enterprise/internal/codeintel/stores/lsifstore/migration/diagnostics_count.go:Up
 UPDATE lsif_data_documents
 SET num_diagnostics = %s, schema_version = 2
 WHERE dump_id = %s AND path = %s
@@ -106,7 +107,7 @@ func (m *diagnosticsCountMigrator) Down(ctx context.Context) error {
 }
 
 const diagnosticsCountMigratorDownQuery = `
--- source: enterprise/internal/codeintel/stores/lsifstore/migration_diagnostics_count.go:Down
+-- source: enterprise/internal/codeintel/stores/lsifstore/migration/diagnostics_count.go:Down
 WITH batch AS (
 	SELECT dump_id, path
 	FROM lsif_data_documents
