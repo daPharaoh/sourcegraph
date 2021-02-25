@@ -110,8 +110,8 @@ func (m *Migrator) run(ctx context.Context, tableName *sqlf.Query, fields []stri
 		return err
 	}
 
-	idMap := map[int]struct{}{}
 	for _, spec := range updateQueries {
+		// TODO - rewrite this
 		spec.Assignments["schema_version"] = version
 		assignments := sqlf.Join(joiner(spec.Assignments), ", ")
 		spec.Conditions["dump_id"] = spec.DumpID
@@ -120,10 +120,12 @@ func (m *Migrator) run(ctx context.Context, tableName *sqlf.Query, fields []stri
 		if err := tx.Exec(ctx, sqlf.Sprintf(migratorUpdateQuery, tableName, assignments, conditions)); err != nil {
 			return err
 		}
-
-		idMap[spec.DumpID] = struct{}{}
 	}
 
+	idMap := map[int]struct{}{}
+	for _, spec := range updateQueries {
+		idMap[spec.DumpID] = struct{}{}
+	}
 	ids := make([]*sqlf.Query, 0, len(idMap))
 	for key := range idMap {
 		ids = append(ids, sqlf.Sprintf("%s", key))
