@@ -21,7 +21,7 @@ func TestDiagnosticsCountMigrator(t *testing.T) {
 	dbtesting.SetupGlobalTestDB(t)
 	store := NewStore(dbconn.Global, &observation.TestContext)
 	migrator := NewDiagnosticsCountMigrator(store)
-	serializer := newSerializer()
+	serializer := NewSerializer()
 
 	assertProgress := func(expectedProgress float64) {
 		if progress, err := migrator.Progress(context.Background()); err != nil {

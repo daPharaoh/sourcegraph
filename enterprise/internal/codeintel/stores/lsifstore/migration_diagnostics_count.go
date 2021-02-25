@@ -12,7 +12,7 @@ import (
 
 type diagnosticsCountMigrator struct {
 	store      *Store
-	serializer *serializer
+	serializer *Serializer
 }
 
 // DiagnosticsCountMigrationID is the primary key of the migration record an instance of
@@ -27,7 +27,7 @@ const DiagnosticsCountMigrationID = 1
 func NewDiagnosticsCountMigrator(store *Store) oobmigration.Migrator {
 	return &diagnosticsCountMigrator{
 		store:      store,
-		serializer: newSerializer(),
+		serializer: NewSerializer(),
 	}
 }
 
