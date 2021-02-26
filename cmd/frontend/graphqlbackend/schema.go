@@ -941,6 +941,12 @@ type CampaignsCredential implements Node {
     externalServiceURL: String!
 
     """
+    The public key to use on the external service for SSH keypair authentication.
+    Not set if the credential doesn't support SSH access.
+    """
+    sshPublicKey: String
+
+    """
     The date and time this token has been created at.
     """
     createdAt: DateTime!

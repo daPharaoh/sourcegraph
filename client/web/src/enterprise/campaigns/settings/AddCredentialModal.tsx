@@ -7,6 +7,7 @@ import { asError, isErrorLike } from '../../../../../shared/src/util/errors'
 import { ErrorAlert } from '../../../components/alerts'
 import { createCampaignsCredential } from './backend'
 import { ExternalServiceKind, Scalars } from '../../../graphql-operations'
+import { defaultExternalServices } from '../../../components/externalServices/externalServices'
 
 export interface AddCredentialModalProps {
     onCancel: () => void
@@ -15,20 +16,7 @@ export interface AddCredentialModalProps {
     userID: Scalars['ID']
     externalServiceKind: ExternalServiceKind
     externalServiceURL: string
-}
-
-const modalTitles: Record<ExternalServiceKind, string> = {
-    [ExternalServiceKind.GITHUB]: 'GitHub',
-    [ExternalServiceKind.GITLAB]: 'GitLab',
-    [ExternalServiceKind.BITBUCKETSERVER]: 'Bitbucket Server',
-
-    // These are just for type completeness and serve as placeholders for a bright future.
-    [ExternalServiceKind.BITBUCKETCLOUD]: 'Unsupported',
-    [ExternalServiceKind.GITOLITE]: 'Unsupported',
-    [ExternalServiceKind.PERFORCE]: 'Unsupported',
-    [ExternalServiceKind.PHABRICATOR]: 'Unsupported',
-    [ExternalServiceKind.AWSCODECOMMIT]: 'Unsupported',
-    [ExternalServiceKind.OTHER]: 'Unsupported',
+    requiresSSH: boolean
 }
 
 const helpTexts: Record<ExternalServiceKind, JSX.Element> = {
@@ -86,10 +74,13 @@ export const AddCredentialModal: React.FunctionComponent<AddCredentialModalProps
     userID,
     externalServiceKind,
     externalServiceURL,
+    requiresSSH,
 }) => {
     const labelId = 'addCredential'
     const [isLoading, setIsLoading] = useState<boolean | Error>(false)
     const [credential, setCredential] = useState<string>('')
+    const [sshPublicKey, setSSHPublicKey] = useState<string>()
+    const twoStepModal: boolean = requiresSSH
 
     const onChangeCredential = useCallback<React.ChangeEventHandler<HTMLInputElement>>(event => {
         setCredential(event.target.value)
@@ -100,13 +91,22 @@ export const AddCredentialModal: React.FunctionComponent<AddCredentialModalProps
             event.preventDefault()
             setIsLoading(true)
             try {
-                await createCampaignsCredential({ user: userID, credential, externalServiceKind, externalServiceURL })
-                afterCreate()
+                const createdCredential = await createCampaignsCredential({
+                    user: userID,
+                    credential,
+                    externalServiceKind,
+                    externalServiceURL,
+                })
+                if (twoStepModal && createdCredential.sshPublicKey) {
+                    setSSHPublicKey(createdCredential.sshPublicKey)
+                } else {
+                    afterCreate()
+                }
             } catch (error) {
                 setIsLoading(asError(error))
             }
         },
-        [afterCreate, userID, credential, externalServiceKind, externalServiceURL]
+        [afterCreate, userID, credential, externalServiceKind, externalServiceURL, twoStepModal]
     )
 
     return (
@@ -117,43 +117,68 @@ export const AddCredentialModal: React.FunctionComponent<AddCredentialModalProps
         >
             <div className="web-content test-add-credential-modal">
                 <h3 id={labelId}>
-                    {modalTitles[externalServiceKind]} campaigns token for {externalServiceURL}
+                    {defaultExternalServices[externalServiceKind].defaultDisplayName} campaigns token for{' '}
+                    {externalServiceURL}
                 </h3>
-                {isErrorLike(isLoading) && <ErrorAlert error={isLoading} history={history} />}
-                <Form onSubmit={onSubmit}>
-                    <div className="form-group">
-                        <label htmlFor="token">Personal access token</label>
-                        <input
-                            id="token"
-                            name="token"
-                            type="text"
-                            className="form-control test-add-credential-modal-input"
-                            required={true}
-                            minLength={1}
-                            value={credential}
-                            onChange={onChangeCredential}
-                        />
-                        <p className="form-text">{helpTexts[externalServiceKind]}</p>
+                {twoStepModal && (
+                    <div className="d-flex w-100 justify-content-between">
+                        <div className="flex-grow-1 mr-2">
+                            <p className="mb-0">1. Add token</p>
+                            <div className="add-credential-modal__modal-step-ruler add-credential-modal__modal-step-ruler--purple" />
+                        </div>
+                        <div className="flex-grow-1 ml-2">
+                            <p className="mb-0">2. Get SSH Key</p>
+                            <div className="add-credential-modal__modal-step-ruler add-credential-modal__modal-step-ruler--blue" />
+                        </div>
                     </div>
-                    <div className="d-flex justify-content-end">
-                        <button
-                            type="button"
-                            disabled={isLoading === true}
-                            className="btn btn-outline-secondary mr-2"
-                            onClick={onCancel}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isLoading === true || credential.length === 0}
-                            className="btn btn-primary test-add-credential-modal-submit"
-                        >
-                            {isLoading === true && <LoadingSpinner className="icon-inline" />}
-                            Add token
-                        </button>
-                    </div>
-                </Form>
+                )}
+                {!(twoStepModal && sshPublicKey) && (
+                    <>
+                        {isErrorLike(isLoading) && <ErrorAlert error={isLoading} history={history} />}
+                        <Form onSubmit={onSubmit}>
+                            <div className="form-group">
+                                <label htmlFor="token">Personal access token</label>
+                                <input
+                                    id="token"
+                                    name="token"
+                                    type="text"
+                                    className="form-control test-add-credential-modal-input"
+                                    required={true}
+                                    minLength={1}
+                                    value={credential}
+                                    onChange={onChangeCredential}
+                                />
+                                <p className="form-text">{helpTexts[externalServiceKind]}</p>
+                            </div>
+                            <div className="d-flex justify-content-end">
+                                <button
+                                    type="button"
+                                    disabled={isLoading === true}
+                                    className="btn btn-outline-secondary mr-2"
+                                    onClick={onCancel}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isLoading === true || credential.length === 0}
+                                    className="btn btn-primary test-add-credential-modal-submit"
+                                >
+                                    {isLoading === true && <LoadingSpinner className="icon-inline" />}
+                                    {twoStepModal ? 'Next' : 'Add credential'}
+                                </button>
+                            </div>
+                        </Form>
+                    </>
+                )}
+                {twoStepModal && sshPublicKey && (
+                    <>
+                        <p>
+                            An SSH key has been generated for your campaigns code host connection. Copy the public key
+                            below and enter it on your code host.
+                        </p>
+                    </>
+                )}
             </div>
         </Dialog>
     )
