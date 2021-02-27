@@ -546,7 +546,6 @@ Foreign-key constraints:
  namespace_user_id | integer                  | 
  unrestricted      | boolean                  | not null default false
  cloud_default     | boolean                  | not null default false
- encryption_key_id | text                     | not null default ''::text
 Indexes:
     "external_services_pkey" PRIMARY KEY, btree (id)
     "kind_cloud_default" UNIQUE, btree (kind, cloud_default) WHERE cloud_default = true
@@ -591,6 +590,7 @@ Indexes:
  num_resets      | integer                  | not null default 0
  num_failures    | integer                  | not null default 0
  execution_logs  | json[]                   | 
+ record_time     | timestamp with time zone | 
 Indexes:
     "insights_query_runner_jobs_pkey" PRIMARY KEY, btree (id)
     "insights_query_runner_jobs_state_btree" btree (state)
